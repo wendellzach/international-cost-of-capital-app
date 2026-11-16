@@ -10,9 +10,9 @@ from bs4 import BeautifulSoup
 BETA_XLS = 'https://pages.stern.nyu.edu/~adamodar/pc/datasets/betas.xls'
 BETA_HTML = 'https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/Betas.html'
 SPREAD_URL = 'https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/ratings.html'
-OECD_URL = ('https://sdmx.oecd.org/public/rest/v1/data/'
+OECD_URL = ('https://sdmx.oecd.org/public/rest/data/'
             'OECD.CTP.TPS,DSD_TAX_CIT@DF_CIT,2.0/.A..ST..S13...?startPeriod=2025')
-OECD_FALLBACK_URL = ('https://sdmx.oecd.org/public/rest/v1/data/'
+OECD_FALLBACK_URL = ('https://sdmx.oecd.org/public/rest/data/'
                      'OECD.CTP.TPS,DSD_TAX_CIT@DF_CIT,2.0/.A..ST..S13...?startPeriod=2025')
 TE_URL = 'https://tradingeconomics.com/bonds'
 
@@ -109,33 +109,47 @@ def fetch_spread():
 
 
 def fetch_oecd_taxes():
-    """OECD SDMX CSV: statutory, general-government combined tax rate, latest year per country."""
-    r = get(OECD_URL, accept='csvfile')
-    df = pd.read_csv(io.BytesIO(r.content), low_memory=False)
+    """Latest combined statutory CIT rates from the OECD SDMX 2.0 dataset.
+
+    Public OECD endpoint documented by its Data Explorer (July 2026).
+    Parse CSV column labels defensively; reject unexpected measures/series.
+    """
+    url = OECD_URL + '&dimensionAtObservation=AllDimensions'
+    r = get(url, accept='csvfile')
+    if not r.content:
+        raise ValueError('Empty response from OECD SDMX API')
+    try:
+        df = pd.read_csv(io.BytesIO(r.content), low_memory=False)
+    except Exception as e:
+        raise ValueError(f'OECD did not return CSV ({r.text[:160]!r}): {e}') from e
     df.columns = [str(c).strip().upper().replace(' ', '_') for c in df.columns]
-    required = ['REF_AREA', 'TIME_PERIOD', 'OBS_VALUE']
+    required = ('REF_AREA', 'TIME_PERIOD', 'OBS_VALUE')
     if not all(c in df.columns for c in required):
-        raise ValueError(f'Unexpected OECD columns: {list(df.columns)[:18]}')
-    if 'MEASURE' in df:
-        # OECD selector .A..ST..S13... should specify statutory general-government measure.
-        # Retain only combined statutory measure if it can be identified explicitly.
-        measures = df['MEASURE'].astype(str).unique().tolist()
-        if len(measures) > 1:
-            raise ValueError(f'OECD returned multiple measures, refusing to mix: {measures}')
+        raise ValueError(f'Unexpected OECD response fields: {list(df.columns)[:20]}. Response begins: {r.text[:110]!r}')
+    # Query selects the statutory (ST) combined general-government (S13)
+    # corporate tax series; explicitly exclude any other observations if present.
+    if 'TARGETING' in df.columns:
+        df = df[df['TARGETING'].astype(str).str.upper() == 'ST']
+    if 'INSTITUTIONAL_SECTOR' in df.columns:
+        df = df[df['INSTITUTIONAL_SECTOR'].astype(str).str.upper() == 'S13']
+    if 'MEASURE' in df.columns and df['MEASURE'].nunique() > 1:
+        raise ValueError(f'OECD returned multiple measures: {df["MEASURE"].unique().tolist()}')
     df['OBS_VALUE'] = pd.to_numeric(df['OBS_VALUE'], errors='coerce')
     df['TIME_PERIOD'] = pd.to_numeric(df['TIME_PERIOD'], errors='coerce')
     df = df.dropna(subset=['OBS_VALUE', 'TIME_PERIOD']).sort_values('TIME_PERIOD')
     out = {}
     for country, iso in COUNTRIES.items():
-        rows = df[df['REF_AREA'].astype(str) == iso]
-        if len(rows):
-            record = rows.iloc[-1]
-            rate = float(record['OBS_VALUE'])
-            if 0 <= rate <= 100:
-                out[country] = {'rate': rate / 100, 'year': int(record['TIME_PERIOD'])}
+        rows = df[df['REF_AREA'].astype(str).str.upper() == iso]
+        if not rows.empty:
+            row = rows.iloc[-1]
+            value = float(row['OBS_VALUE'])
+            if 0 <= value <= 100:
+                out[country] = {'rate': value / 100, 'year': int(row['TIME_PERIOD'])}
     if 'United States' not in out or len(out) < 10:
-        raise ValueError(f'OECD returned insufficient country observations ({len(out)} countries).')
-    return {'data': out, 'source': OECD_URL, 'as_of': f"latest observations: {max(x['year'] for x in out.values())}", 'status': 'live'}
+        raise ValueError(f'OECD returned only {len(out)} recognized countries; check API response and series selection')
+    return {'data': out, 'source': url,
+            'as_of': f"Latest country observations through {max(x['year'] for x in out.values())}",
+            'status': 'live'}
 
 
 def _normalize(name):
@@ -143,34 +157,66 @@ def _normalize(name):
     return ALIASES.get(n, n)
 
 
-def fetch_yields():
-    """Parse Trading Economics public table. TE may block automated access; never fabricate quotes."""
-    r = get(TE_URL)
-    tables = _tables(r.text)
+def _extract_te_table(html):
+    """Try conventional HTML tables and embedded JSON quote data, without guessing."""
     result = {}
+    try:
+        tables = _tables(html)
+    except (ValueError, ImportError):
+        tables = []
     for t in tables:
         t.columns = [' '.join(str(x) for x in c) if isinstance(c, tuple) else str(c) for c in t.columns]
         cols = list(t.columns)
-        if not any('country' in c.lower() for c in cols):
-            continue
-        name_col = next(c for c in cols if 'country' in c.lower())
+        name_col = next((c for c in cols if 'country' in c.lower() or c.strip().lower() == 'name'), None)
         yield_col = next((c for c in cols if c.strip().lower() in ('yield', 'last', 'price', 'value')), None)
-        if not yield_col:
+        if not name_col or not yield_col:
             continue
-        date_col = next((c for c in cols if c.lower() in ('date', 'time')), None)
+        date_col = next((c for c in cols if c.strip().lower() in ('date', 'time', 'lastupdate')), None)
         for _, row in t.iterrows():
             name = _normalize(str(row[name_col]))
-            name = re.sub(r'\s+(10Y|10 Year|10-year).*$', '', name, flags=re.I)
+            name = re.sub(r'\s+(10Y|10 Year|10-year).*$', '', name, flags=re.I).strip()
             if name not in COUNTRIES:
                 continue
-            m = re.search(r'-?\d+(?:\.\d+)?', str(row[yield_col]).replace(',', ''))
-            if m:
-                value = float(m.group())
-                if -10 < value < 100:
-                    result[name] = {'yield': value/100, 'date': str(row[date_col]) if date_col else 'Website quote; timestamp not provided'}
+            match = re.search(r'-?\d+(?:\.\d+)?', str(row[yield_col]).replace(',', ''))
+            if match:
+                val = float(match.group())
+                if -10 < val < 100:
+                    result[name] = {'yield': val/100,
+                                    'date': str(row[date_col]) if date_col else 'Source webpage; timestamp unavailable'}
+    # Some versions of the public page contain serialized quote objects, not
+    # <table> markup. Parse only complete objects with explicit Country and Last.
+    import json
+    for m in re.finditer(r'\{[^{}]{0,2000}\"Country\"\s*:\s*\"[^\"]+\"[^{}]{0,2000}\}', html):
+        try:
+            obj = json.loads(m.group())
+        except (ValueError, TypeError):
+            continue
+        name = _normalize(str(obj.get('Country', '')).strip())
+        title = str(obj.get('Name', obj.get('Symbol', ''))).lower()
+        if name not in COUNTRIES or ('bond' not in title and '10y' not in title and '10 year' not in title):
+            continue
+        try:
+            val = float(str(obj['Last']).replace(',', ''))
+        except (ValueError, TypeError, KeyError):
+            continue
+        if -10 < val < 100:
+            result[name] = {'yield': val/100,
+                            'date': str(obj.get('Date') or obj.get('LastUpdate') or 'Source webpage; timestamp unavailable')}
+    return result
+
+
+def fetch_yields():
+    """Attempt public TE table/embedded quotes; fail transparently if restricted.
+
+    Trading Economics also has an official authenticated bonds API, but the
+    assignment specifies no API key, so the app never assumes credentials.
+    """
+    r = get(TE_URL)
+    result = _extract_te_table(r.text)
     if 'United States' not in result or len(result) < 2:
-        raise ValueError('Trading Economics public page did not expose sufficient parsable 10-year yield rows. Enter manual yields; the app will not substitute stale or fabricated values.')
-    return {'data': result, 'source': TE_URL, 'as_of': 'Current page quote; check source timestamps', 'status': 'live'}
+        raise ValueError('Trading Economics did not expose accessible live 10-year yield quotes in HTML or embedded JSON. This is a site access limitation, not a Streamlit deployment failure. Open https://tradingeconomics.com/bonds and manually override the U.S. and target-country yields with verified dated quotes.')
+    return {'data': result, 'source': TE_URL,
+            'as_of': 'Source quote date per country; fetched now', 'status': 'live'}
 
 
 def try_fetch(loader):
