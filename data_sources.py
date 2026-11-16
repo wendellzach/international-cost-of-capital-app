@@ -1,5 +1,6 @@
 """Remote data retrieval. Fail visibly; do not invent live market quotes."""
 import io
+import os
 import re
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -132,8 +133,8 @@ def fetch_oecd_taxes():
         df = df[df['TARGETING'].astype(str).str.upper() == 'ST']
     if 'INSTITUTIONAL_SECTOR' in df.columns:
         df = df[df['INSTITUTIONAL_SECTOR'].astype(str).str.upper() == 'S13']
-    if 'MEASURE' in df.columns and df['MEASURE'].nunique() > 1:
-        raise ValueError(f'OECD returned multiple measures: {df["MEASURE"].unique().tolist()}')
+    if 'MEASURE' in df.columns:
+        df = df[df['MEASURE'].astype(str).str.upper() == 'CIT_C']
     df['OBS_VALUE'] = pd.to_numeric(df['OBS_VALUE'], errors='coerce')
     df['TIME_PERIOD'] = pd.to_numeric(df['TIME_PERIOD'], errors='coerce')
     df = df.dropna(subset=['OBS_VALUE', 'TIME_PERIOD']).sort_values('TIME_PERIOD')
@@ -205,18 +206,69 @@ def _extract_te_table(html):
     return result
 
 
-def fetch_yields():
-    """Attempt public TE table/embedded quotes; fail transparently if restricted.
+def _extract_te_api(payload):
+    """Parse documented Trading Economics 10Y bond API response."""
+    if not isinstance(payload, list):
+        raise ValueError('Trading Economics returned a non-list API response')
+    out = {}
+    for obj in payload:
+        if not isinstance(obj, dict):
+            continue
+        country = _normalize(str(obj.get('Country', '')))
+        name = str(obj.get('Name', ''))
+        group = str(obj.get('Group', ''))
+        if country not in COUNTRIES or not (re.search(r'\b10\s*Y\b|10\s*year', name, re.I) or re.search(r'\b10Y\b', group, re.I)):
+            continue
+        try:
+            val = float(obj['Last'])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if -10 < val < 100:
+            out[country] = {'yield': val/100,
+                            'date': str(obj.get('LastUpdate') or obj.get('Date') or 'Timestamp unavailable')}
+    return out
 
-    Trading Economics also has an official authenticated bonds API, but the
-    assignment specifies no API key, so the app never assumes credentials.
+
+def fetch_yields():
+    """Use authenticated official TE API if configured, otherwise public page.
+
+    No fake 'live' quotes: if neither works, surface the error and ask for
+    verified manual data. A Streamlit secret TE_API_KEY is supported.
     """
-    r = get(TE_URL)
-    result = _extract_te_table(r.text)
-    if 'United States' not in result or len(result) < 2:
-        raise ValueError('Trading Economics did not expose accessible live 10-year yield quotes in HTML or embedded JSON. This is a site access limitation, not a Streamlit deployment failure. Open https://tradingeconomics.com/bonds and manually override the U.S. and target-country yields with verified dated quotes.')
-    return {'data': result, 'source': TE_URL,
-            'as_of': 'Source quote date per country; fetched now', 'status': 'live'}
+    api_key = os.environ.get('TE_API_KEY', '').strip()
+    if not api_key:
+        try:
+            import streamlit as st
+            api_key = str(st.secrets.get('TE_API_KEY', '')).strip()
+        except Exception:
+            pass
+    error = ''
+    if api_key:
+        api_url = 'https://api.tradingeconomics.com/markets/bond'
+        try:
+            response = requests.get(api_url,
+                                    params={'c': api_key, 'type': '10Y', 'f': 'json'},
+                                    timeout=25)
+            response.raise_for_status()
+            data = _extract_te_api(response.json())
+            if 'United States' in data and len(data) >= 2:
+                return {'data': data, 'source': api_url,
+                        'as_of': 'Per-bond quote timestamps', 'status': 'live (official API)'}
+            error = f'Authenticated TE API returned {len(data)} recognized 10Y bond yields.'
+        except Exception as exc:
+            error = f'TE API: {exc}'
+    try:
+        r = get(TE_URL)
+        result = _extract_te_table(r.text)
+        if 'United States' in result and len(result) >= 2:
+            return {'data': result, 'source': TE_URL,
+                    'as_of': 'Source quote date per country', 'status': 'live (public webpage)'}
+    except Exception as exc:
+        error += f' Public webpage: {exc}'
+    raise ValueError('Trading Economics did not provide accessible 10-year yields via its public webpage. '
+                     'For reliable automatic updates, set a Trading Economics API key in '
+                     'Streamlit App Settings > Secrets as TE_API_KEY = "your_key". '
+                     'Otherwise use dated, manually verified government yields. ' + error)
 
 
 def try_fetch(loader):
