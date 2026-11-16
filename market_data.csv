@@ -1,0 +1,40 @@
+country,corporate_tax_rate_pct,tax_as_of,government_10y_yield_pct,yield_as_of,tax_source_url,yield_source_url
+United States,25.63,2024,5.13,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+United Kingdom,25,2024,5.36,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Germany,29.93,2024,3.38,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+France,25.83,2024,4.94,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Japan,29.74,2024,2.89,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Canada,26.14,2024,3.81,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Australia,30,2024,5.12,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Italy,27.81,2024,4.45,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Spain,25,2024,3.95,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Netherlands,25.8,2024,3.47,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Switzerland,19.61,2024,0.57,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Sweden,20.6,2024,3.1,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Norway,22,2024,4.39,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Denmark,22,2024,3.17,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Finland,20,2024,3.76,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Belgium,25,2024,4.38,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Austria,23,2024,3.62,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Ireland,12.5,2024,3.52,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Portugal,31.5,2024,3.83,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Poland,19,2024,6.29,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Czech Republic,21,2024,5.26,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Hungary,9,2024,5.53,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Greece,22,2024,4.29,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Turkey,25,2024,33.52,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Mexico,30,2024,9.31,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Brazil,34,2024,15.33,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+South Korea,26.4,2024,3.99,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+China,25,2024,1.63,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+India,30,2024,7.32,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Indonesia,22,2024,7.61,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+South Africa,27,2024,8.72,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+New Zealand,28,2024,4.77,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Singapore,17,2024,2.34,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Israel,23,2024,4.13,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Chile,27,2024,6.01,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Colombia,35,2024,12.7,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Thailand,20,2024,1.98,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Malaysia,24,2024,3.87,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
+Philippines,25,2024,7.7,2026-11-16 (Nov 2026 reference),https://taxfoundation.org/data/all/global/corporate-tax-rates-by-country-2024/,https://tradingeconomics.com/country-list/government-bond-10y
