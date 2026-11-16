@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 import pandas as pd
 import plotly.express as px
@@ -43,6 +44,76 @@ with head_right:
 with st.spinner('Loading latest source data...'):
     sources = load_data()
 
+# A user-maintained CSV is a documented alternative when the OECD / TE feeds
+# reject automated queries. It can live in the GitHub repository or be uploaded
+# during a session. Blank cells do not override existing data.
+CSV_COLS = ('country', 'corporate_tax_rate_pct', 'tax_as_of',
+            'government_10y_yield_pct', 'yield_as_of',
+            'tax_source_url', 'yield_source_url')
+
+def apply_manual_csv(base_sources, csv_file, filename):
+    df = pd.read_csv(csv_file, dtype=str, keep_default_na=False).fillna('')
+    if any(c not in df.columns for c in CSV_COLS):
+        raise ValueError('CSV must include: ' + ', '.join(CSV_COLS))
+    if df['country'].duplicated().any():
+        raise ValueError('CSV contains duplicate country names.')
+    updated = {k: dict(v) for k, v in base_sources.items()}
+    used = {'taxes': [], 'yields': []}
+    for _, r in df.iterrows():
+        name = r['country'].strip()
+        if name not in COUNTRIES:
+            if name: raise ValueError(f'Country not supported: {name}')
+            continue
+        for dataset, value_col, date_col, url_col, out_key, factor in [
+            ('taxes', 'corporate_tax_rate_pct', 'tax_as_of', 'tax_source_url', 'rate', 100),
+            ('yields', 'government_10y_yield_pct', 'yield_as_of', 'yield_source_url', 'yield', 100)]:
+            raw = r[value_col].strip()
+            if not raw:
+                continue
+            value = float(raw)
+            if not (0 <= value <= 100) if dataset == 'taxes' else not (-10 < value < 100):
+                raise ValueError(f'Unreasonable {value_col} for {name}: {value}')
+            if not r[date_col].strip() or not r[url_col].strip():
+                raise ValueError(f'{name}: {value_col} requires both source date and source URL.')
+            current = updated[dataset]
+            current['data'] = dict(current.get('data') or {})
+            current['data'][name] = {out_key: value / factor,
+                                     'date': r[date_col].strip(),
+                                     'year': r[date_col].strip(),
+                                     'source_url': r[url_col].strip()}
+            used[dataset].append(name)
+    for dataset, countries in used.items():
+        if countries:
+            obj = updated[dataset]
+            obj['status'] = 'MANUAL CSV' if base_sources[dataset]['data'] is None else 'LIVE + MANUAL CSV'
+            obj['source'] = filename
+            obj['as_of'] = 'See per-country dates in manually maintained CSV'
+            obj['error'] = ''
+    return updated, used
+
+with st.sidebar:
+    with st.expander('Import verified market data (CSV)', expanded=False):
+        st.caption('Upload a filled CSV, or commit market_data.csv to GitHub for automatic reuse. Entries must include their original source URL and observation date. Data are labeled manual, never live.')
+        uploaded_market_csv = st.file_uploader('Upload market data', type=['csv'], key='market_csv')
+        st.download_button('Download blank CSV template',
+                           data='country,corporate_tax_rate_pct,tax_as_of,government_10y_yield_pct,yield_as_of,tax_source_url,yield_source_url\nUnited States,,,,,,\nUnited Kingdom,,,,,,\n',
+                           file_name='market_data.csv', mime='text/csv')
+
+try:
+    if uploaded_market_csv is not None:
+        sources, csv_used = apply_manual_csv(sources, uploaded_market_csv, uploaded_market_csv.name)
+    elif Path('market_data.csv').exists():
+        sources, csv_used = apply_manual_csv(sources, 'market_data.csv', 'market_data.csv (GitHub)')
+    else:
+        csv_used = {'taxes': [], 'yields': []}
+except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
+    st.error('Market-data CSV error: ' + str(exc))
+    csv_used = {'taxes': [], 'yields': []}
+if any(csv_used.values()):
+    st.info('Using manually verified CSV data for: ' + '; '.join(
+        dataset + ' (' + ', '.join(names) + ')' for dataset, names in csv_used.items() if names) +
+        '. Source dates/URLs should be checked against the original publications.')
+
 betas = sources['betas']['data'] or {}
 taxes = sources['taxes']['data'] or {}
 yields = sources['yields']['data'] or {}
@@ -70,7 +141,7 @@ with st.sidebar:
                                   step=step, format=format, key='value_' + key)
             return val, 'manual' if on else 'manual required', True
         st.caption(f'{label}: {default:{format[1:]}} (auto)')
-        return default, 'live', False
+        return default, 'manual CSV' if any(csv_used.values()) and key in ('tax_us', 'tax_foreign', 'yield_us', 'yield_foreign') and ((key.startswith('tax') and (('United States' if key == 'tax_us' else country) in csv_used['taxes'])) or (key.startswith('yield') and (('United States' if key == 'yield_us' else country) in csv_used['yields']))) else 'live', False
 
     beta_val, beta_status, _ = number_override('Unlevered beta', 'beta', betas.get(industry), '%.3f', 0.01, 20.0)
     tax_us = taxes.get('United States', {}).get('rate')
@@ -202,7 +273,7 @@ with tab_sources:
                         'Source URL': item['source'], 'Error': item.get('error', '')})
     st.dataframe(pd.DataFrame(records), hide_index=True, use_container_width=True,
                  column_config={'Source URL': st.column_config.LinkColumn('Source URL')})
-    st.caption('Refresh clears the 6-hour cache and retries all sources. Source publication date and retrieval timestamp are intentionally separate. Trading Economics can change or block public table scraping. When unavailable, manually enter verified quotes instead.')
+    st.caption('Refresh clears the 6-hour live cache and retries sources. MANUAL CSV means verified user-entered data, not a successful live retrieval. CSV entries should include source URLs and observation dates.')
     if tax_us is not None:
         st.caption(f'OECD U.S. tax: {tax_us*100:.2f}% (year {taxes["United States"]["year"]}). ' + (f'{country}: {tax_foreign*100:.2f}% (year {taxes[country]["year"]}).' if tax_foreign is not None else f'No OECD observation found for {country}.'))
     st.markdown('Source pages: [Damodaran betas](https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/Betas.html) · [Damodaran ratings](https://pages.stern.nyu.edu/adamodar/New_Home_Page/datafile/ratings.html) · [OECD](https://www.oecd.org/en/data/datasets/corporate-income-tax-rates-database.html) · [Trading Economics](https://tradingeconomics.com/bonds)')
